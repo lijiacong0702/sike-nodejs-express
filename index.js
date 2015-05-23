@@ -59,6 +59,7 @@ var myexpress = function() {
 					try {
 						req.params = matchResult.params;
 						m.handle(req, res, next);
+						next();
 					} catch(e) {
 						next(e);
 					}
@@ -90,14 +91,20 @@ var myexpress = function() {
 		app.stack.push(layer);
 	};
 
-	var methods = require('methods');
+	app.route = function(path) {
+		var route = makeRoute();
+		app.use(path, route);
+		return route;
+	};
+
+	var methods = require('methods').concat("all");
 	methods.forEach(function(method) {
 		app[method] = function(path, handler) {
-			var newHandler = makeRoute(method, handler);
-			var layer = new Layer(path, newHandler, {});
-			app.stack.push(layer);
+			app.route(path)[method](handler);
+			return app;
 		}
 	});
+
 	app.handle = app;
 	return app;
 }
