@@ -1,5 +1,6 @@
 var http = require('http');
 var Layer = require('./lib/layer');
+var makeRoute = require('./lib/route');
 
 var myexpress = function() {
 	var app = function(req, res, next2, err2) {
@@ -78,14 +79,25 @@ var myexpress = function() {
 	}
 	app.stack = [];
 	app.use = function() {
-		var layer;
+		var layer, options;
 		if(arguments.length == 1) {
-			layer = new Layer('/', arguments[0]);
+			options = arguments[1] ? arguments[1] : {};
+			layer = new Layer('/', arguments[0], options);
 		} else {
-			layer = new Layer(arguments[0], arguments[1]);
+			options = arguments[2] ? arguments[2] : {};
+			layer = new Layer(arguments[0], arguments[1], options);
 		}
 		app.stack.push(layer);
 	};
+
+	var methods = require('methods');
+	methods.forEach(function(method) {
+		app[method] = function(path, handler) {
+			var newHandler = makeRoute(method, handler);
+			var layer = new Layer(path, newHandler, {});
+			app.stack.push(layer);
+		}
+	});
 	app.handle = app;
 	return app;
 }

@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "chai": "^1.9.1",
+    "methods": "^0.1.0",
     "mocha": "^1.18.2",
     "supertest": "^0.10.0"
   }
