@@ -105,6 +105,16 @@ var myexpress = function() {
 		}
 	});
 
+	app._factories = {};
+	app.factory = function(name, fn) {
+		app._factories[name] = fn;
+	};
+
+	var injector = require('./lib/injector');
+	app.inject = function(fn) {
+		return injector(fn, app);
+	}
+
 	app.handle = app;
 	return app;
 }
