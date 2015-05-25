@@ -18,11 +18,13 @@ var myexpress = function() {
 			if(err) {
 				//如果是App embedding as middleware
 				if(m && matchResult && typeof m.handle.handle === "function") {
+					req.app = m.handler;
 					// Prefix path trimming for embedded app
 					var oriUrl = req.url;
 					req.url = trim(req.url);
 					m.handle(req, res, next, err);
 					req.url = oriUrl;
+					req.app = app;
 					next();
 				} else {
 					while(m && (! matchResult|| m.handle.length != 4) ){
@@ -42,11 +44,13 @@ var myexpress = function() {
 			} else {
 				//如果是App embedding as middleware
 				if(m && matchResult && typeof m.handle.handle === "function") {
+					req.app = m.handler;
 					// Prefix path trimming for embedded app
 					var oriUrl = req.url;
 					req.url = trim(req.url);
 					m.handle(req, res, next);
 					req.url = oriUrl;
+					req.app = app;
 					next();
 				} else {
 					while(m && (!matchResult || m.handle.length == 4) ){
@@ -66,6 +70,22 @@ var myexpress = function() {
 				}
 			}
 		};
+
+		//call monkey_patch before calling middlewares.
+		app.monkey_patch(req, res, next2);
+		req.res = res;
+		res.req = req;
+		req.app = app;
+		
+		res.redirect = function() {
+			if(arguments.length == 1) {
+				res.writeHead(302, {'Content-Length': 0,'Location' : arguments[0]});
+			} else {
+				res.writeHead(arguments[0], {'Content-Length': 0,'Location' : arguments[1]});
+			}
+			res.end();
+		}
+
 		next(err2);
 		if(next2) {
 			return;
@@ -113,6 +133,13 @@ var myexpress = function() {
 	var injector = require('./lib/injector');
 	app.inject = function(fn) {
 		return injector(fn, app);
+	}
+
+	var request = require('./lib/request');
+	var response = require('./lib/response');
+	app.monkey_patch = function(req, res) {
+		req.__proto__ = request(req);
+		res.__proto__ = response(res);
 	}
 
 	app.handle = app;
