@@ -16,6 +16,9 @@ var myexpress = function() {
 			m = app.stack[i];
 			matchResult = m ? m.match(req.url) : undefined;
 			if(err) {
+				if(err.message === 'Not Acceptable') {
+					return;
+				}
 				//如果是App embedding as middleware
 				if(m && matchResult && typeof m.handle.handle === "function") {
 					req.app = m.handler;
@@ -84,7 +87,35 @@ var myexpress = function() {
 				res.writeHead(arguments[0], {'Content-Length': 0,'Location' : arguments[1]});
 			}
 			res.end();
+		};
+
+		var mime = require('mime');
+		res.type = function(ext) {
+			var mimeType = mime.lookup(ext);
+			res.setHeader('Content-Type', mimeType);
+		};
+
+		res.default_type = function(ext) {
+			var mimeType = mime.lookup(ext);
+			var oriType = res.getHeader('content-type');
+			if(!oriType) {
+				res.setHeader('Content-Type', mimeType);
+			}
 		}
+
+		var accepts = require('accepts');
+		res.format = function(obj) {
+			var accept = accepts(req);
+			var key = accept.types(Object.keys(obj));
+			if(key != '*/*') {
+				res.type(key);
+				obj[key]();
+			} else {
+				res.statusCode = 406;
+				var err = new Error("Not Acceptable");
+				throw err;
+			}
+		};
 
 		next(err2);
 		if(next2) {
