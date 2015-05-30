@@ -1,6 +1,7 @@
 var http = require('http');
 var Layer = require('./lib/layer');
 var makeRoute = require('./lib/route');
+var crc32 = require('buffer-crc32');
 
 var myexpress = function() {
 	var app = function(req, res, next2, err2) {
@@ -114,6 +115,81 @@ var myexpress = function() {
 				res.statusCode = 406;
 				var err = new Error("Not Acceptable");
 				throw err;
+			}
+		};
+
+		res.send = function() {
+			if(req.method === 'GET') {
+				var oriEtag = res.getHeader('ETag');
+				var reqEtag = req.headers['if-none-match'];
+				if(oriEtag != undefined && reqEtag != undefined && reqEtag === oriEtag) {
+					res.statusCode = 304;
+					res.end();
+				}
+				var reqLastModified = req.headers['if-modified-since'];
+				var resLastModified = res.getHeader('Last-Modified');
+				if(reqLastModified != undefined && resLastModified != undefined && reqLastModified >= resLastModified) {
+					res.statusCode = 304;
+					res.end();
+				}
+				if(!oriEtag) {
+					if(arguments.length === 1) {
+						if(typeof arguments[0] === 'string') {
+							if(arguments[0] !== "") {
+								res.setHeader('ETag', '"'+crc32.unsigned(arguments[0])+'"');
+							}
+						}
+					} else  if(arguments.length === 2){
+						if(typeof arguments[1] === 'string') {
+							if(arguments[1] !== "") {
+								res.setHeader('ETag', '"'+crc32.unsigned(arguments[1])+'"');
+							}
+						}
+					}
+				}
+			}
+
+			if(arguments.length === 1) {
+				if(typeof arguments[0] === 'number') {
+					res.statusCode = arguments[0];
+					res.end(http.STATUS_CODES[arguments[0]]);
+				} else {
+					var oriType = res.getHeader('content-type');
+					if(!oriType) {
+						if(arguments[0] instanceof Buffer) {
+							res.setHeader('Content-Type', 'application/octet-stream');
+							res.setHeader('Content-Length', arguments[0].length);
+						} else if(typeof arguments[0] == 'string') {
+							res.setHeader('Content-Type', 'text/html');
+							res.setHeader('Content-Length', Buffer.byteLength(arguments[0]));
+						} else {
+							res.setHeader('Content-Type', 'application/json');
+							res.setHeader('Content-Length', JSON.stringify(arguments[0]).length);
+							res.statusCode=200;
+							res.end(JSON.stringify(arguments[0]));
+						}
+					}
+					res.statusCode=200;
+					res.end(arguments[0]);
+				}
+			} else if(arguments.length === 2){
+				var oriType = res.getHeader('content-type');
+				if(!oriType) {
+					if(arguments[1] instanceof Buffer) {
+						res.setHeader('Content-Type', 'application/octet-stream');
+						res.setHeader('Content-Length', arguments[1].length);
+					} else if(typeof arguments[1] == 'string') {
+						res.setHeader('Content-Type', 'text/html');
+						res.setHeader('Content-Length', Buffer.byteLength(arguments[1]));
+					} else {
+							res.setHeader('Content-Type', 'application/json');
+							res.setHeader('Content-Length', JSON.stringify(arguments[1]).length);
+							res.statusCode=200;
+							res.end(JSON.stringify(arguments[1]));
+					}
+				}
+				res.statusCode=arguments[0];
+				res.end(arguments[1]);
 			}
 		};
 
