@@ -23,6 +23,7 @@
     "methods": "^0.1.0",
     "mime": "^1.2.11",
     "mocha": "^1.18.2",
+    "range-parser": "^1.0.0",
     "supertest": "^0.10.0"
   }
 }

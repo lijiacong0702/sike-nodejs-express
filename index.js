@@ -2,6 +2,9 @@ var http = require('http');
 var Layer = require('./lib/layer');
 var makeRoute = require('./lib/route');
 var crc32 = require('buffer-crc32');
+var path = require('path');
+var fs = require('fs');
+var rparser = require('range-parser');
 
 var myexpress = function() {
 	var app = function(req, res, next2, err2) {
@@ -67,7 +70,7 @@ var myexpress = function() {
 					try {
 						req.params = matchResult.params;
 						m.handle(req, res, next);
-						next();
+						//next();
 					} catch(e) {
 						next(e);
 					}
@@ -193,11 +196,82 @@ var myexpress = function() {
 			}
 		};
 
+		res.stream = function(inputStream) {
+			inputStream.on('data', function(data) {
+				// var ok = res.write(data);
+				// if(ok == false) {
+				// 	inputStream.pause();
+				// 	res.once('drain', function() {
+				// 		inputStream.resume();
+				// 	});
+				// }
+				res.end(data);
+			});
+		}
+
+		res.sendfile = function(p, options) {
+			if(p.indexOf('..') != -1) {
+				res.statusCode = 403;
+				res.end();
+				return;
+			}
+			var finalPath='';
+			if(options) {
+				finalPath += path.normalize(options.root);
+			}
+			finalPath +=path.normalize(p);
+
+			fs.stat(finalPath, function(err, stats) {
+				if(err) {
+					res.statusCode = 404;
+					res.end();
+					return;
+				}
+				if(stats.isDirectory()) {
+					res.statusCode = 403;
+					res.end();
+					return;
+				}
+
+				var header = {};
+				header['Content-Type'] = 'text/plain';
+				header['Accept-Range'] = 'bytes';
+				// Range Request
+				var file;
+				var ran = req.headers['range'];
+				if(ran) {
+					var r = rparser(stats.size, ran);
+				}
+				if(ran && r!=-2) {
+					if(r === -1) {
+						res.statusCode = 416;
+						res.end();
+						return;
+					}
+					var opt = {};
+					opt.start = r[0].start;
+					opt.end = r[0].end;
+					file = fs.createReadStream(finalPath, opt);
+					header['Content-Range'] = 'bytes '+opt.start+'-'+opt.end+'/'+stats.size;
+					header['Content-Length'] = opt.end-opt.start+1;
+					res.writeHead(206, header);
+				} else {
+					file = fs.createReadStream(finalPath);
+					header['Content-Length'] = stats.size;
+					res.writeHead(200, header);
+				}
+				res.stream(file);
+			});
+		}
+
 		next(err2);
 		if(next2) {
 			return;
 		} else {
-			res.end();
+			res.on('end', function(){
+				//res.writeHead(200);
+				res.end();
+			});
 		}
 	};
 	app.listen = function(port, done) {
