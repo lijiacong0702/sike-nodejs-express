@@ -198,14 +198,14 @@ var myexpress = function() {
 
 		res.stream = function(inputStream) {
 			inputStream.on('data', function(data) {
-				// var ok = res.write(data);
-				// if(ok == false) {
-				// 	inputStream.pause();
-				// 	res.once('drain', function() {
-				// 		inputStream.resume();
-				// 	});
-				// }
-				res.end(data);
+				var ok = res.write(data);
+				if(ok == false) {
+					inputStream.pause();
+					res.once('drain', function() {
+						inputStream.resume();
+					});
+				}
+				res.end();
 			});
 		}
 
